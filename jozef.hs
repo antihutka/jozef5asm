@@ -26,7 +26,7 @@ data AST = Operation1 String Const16
          | Var8 String Const8
          | Var16 String Const16
          | VarStr String String
-         | Array String Const16
+         | Array String Integer
          | Seq [AST]
   deriving (Show, Eq)
 
@@ -96,11 +96,11 @@ simpleOne = m_whiteSpace >> statementParser <* eof
               } <|> ( m_reserved "ret" >> return Ret ) <|>
            do { m_reserved "int8"
               ; ident <- m_identifier
-              ; num <- option 0 p_const8
+              ; num <- p_const8
               ; return $ Var8 ident num } <|>
            do { m_reserved "int16"
               ; ident <- m_identifier
-              ; num <- option 0 p_const16
+              ; num <- p_const16
               ; return $ Var16 ident num } <|>
            do { m_reserved "strz"
               ; ident <- m_identifier
@@ -130,4 +130,7 @@ p_const16 = do { ident <- m_identifier
                ; num <- m_natural
                ; return $ Number16 num } <|>
             do { num <- m_natural
-               ; return $ Number16 num } <|>
+               ; return $ Number16 num }
+
+p_const8 = do { num <- m_natural
+              ; return $ Number8 num }
