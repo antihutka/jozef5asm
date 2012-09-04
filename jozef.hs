@@ -127,10 +127,18 @@ p_const16 = do { ident <- m_identifier
             do { num <- m_natural
                ; return $ Number16 num } <|>
             do { char '#'
-               ; num <- m_natural
-               ; return $ Number16 num } <|>
+               ; num <- p_const8
+               ; return $ HashConst8 num } <|>
             do { num <- m_natural
                ; return $ Number16 num }
 
 p_const8 = do { num <- m_natural
-              ; return $ Number8 num }
+              ; return $ Number8 num } <|>
+           do { num <- p_const16
+              ; char '/'
+              ; l_or_h num }
+
+l_or_h num = do { char 'l'
+                ; return $ ConstL num } <|>
+             do { char 'h'
+                ; return $ ConstH num }
