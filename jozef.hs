@@ -34,7 +34,7 @@ data AST = Operation1 String Const16
 def = emptyDef{ commentStart = "/*"
               , commentEnd = "*/"
               , identStart = letter
-              , identLetter = alphaNum
+              , identLetter = (alphaNum <|> char '_')
               --, opStart = oneOf "~&=:"
               --, opLetter = oneOf "~&=:"
               --, reservedOpNames = ["~", "&", "=", ":="]
