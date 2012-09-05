@@ -142,3 +142,13 @@ l_or_h num = do { char 'l'
                 ; return $ ConstL num } <|>
              do { char 'h'
                 ; return $ ConstH num }
+
+is_var (Var8 _ _) = True
+is_var (Var16 _ _) = True
+is_var (VarStr _ _) = True
+is_var (Array _ _) = True
+is_var _ = False
+
+extract_vars = filter is_var
+
+extract_ops = filter $ not . is_var
