@@ -6,6 +6,7 @@ import Text.Parsec.Token
 import Text.Parsec.Language
 import Text.Parsec.String
 import Text.Parsec.Expr
+import Data.Char (ord)
 
 data Const16 = LabelName String
              | Number16 Integer
@@ -190,3 +191,16 @@ ops_to_movs addr (Label lbl:opstail) = (movstail, (lbl,addr-2):labelstail)
 ops_to_movs addr (op:opstail) = ((op_to_mov op):movstail, labelstail)
   where
     (movstail, labelstail) = ops_to_movs (addr+4) opstail
+
+var_to_nl (VarStr name value) = (name, concat [map ord value, [0]])
+-- can't convert const8/16 yet
+--var_to_nl (Var8 name value) = (name, [value])
+--var_to_nl (Var16 name value) = (name, [div value 256, mod value 256])
+var_to_nl (Array name length) = (name, replicate (fromIntegral length) 0)
+
+alloc_vars _ [] = ([], [])
+alloc_vars addr (var:varstail) = (vardata:vdtail, varlabel:vltail)
+  where
+    (varname, vardata) = var_to_nl var
+    varlabel = (varname, addr)
+    (vdtail, vltail) = alloc_vars (addr + length vardata) varstail
