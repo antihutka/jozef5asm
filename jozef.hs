@@ -182,3 +182,11 @@ op_to_mov (Operation3 "or" x y z) = [mov_ar y "ALOP1",
                                      mov_ar z "ALOP2",
                                      mov_ra "ALOR" x]
 op_to_mov Ret = [mov_nr 1 "JMPNZ"]
+
+ops_to_movs _ [] = ([], [])
+ops_to_movs addr (Label lbl:opstail) = (movstail, (lbl,addr-2):labelstail)
+  where
+    (movstail, labelstail) = ops_to_movs addr opstail
+ops_to_movs addr (op:opstail) = ((op_to_mov op):movstail, labelstail)
+  where
+    (movstail, labelstail) = ops_to_movs (addr+4) opstail
