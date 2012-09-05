@@ -184,6 +184,7 @@ op_to_mov (Operation3 "or" x y z) = [mov_ar y "ALOP1",
                                      mov_ra "ALOR" x]
 op_to_mov Ret = [mov_nr 1 "JMPNZ"]
 
+ops_to_movs :: Integer -> [AST] -> ([[(Const16, Const16)]], [(String, Integer)])
 ops_to_movs _ [] = ([], [])
 ops_to_movs addr (Label lbl:opstail) = (movstail, (lbl,addr-2):labelstail)
   where
@@ -192,15 +193,43 @@ ops_to_movs addr (op:opstail) = ((op_to_mov op):movstail, labelstail)
   where
     (movstail, labelstail) = ops_to_movs (addr+4) opstail
 
-var_to_nl (VarStr name value) = (name, concat [map ord value, [0]])
--- can't convert const8/16 yet
---var_to_nl (Var8 name value) = (name, [value])
---var_to_nl (Var16 name value) = (name, [div value 256, mod value 256])
-var_to_nl (Array name length) = (name, replicate (fromIntegral length) 0)
+var_to_nl labels (VarStr name value) = (name, concat [map ord value, [0]])
+var_to_nl labels (Var8 name value) = (name, [fromIntegral $ res_const8 labels value])
+var_to_nl labels (Var16 name value) = (name, [div (fromIntegral $ res_const16 labels value) 256, mod (fromIntegral $ res_const16 labels value) 256])
+var_to_nl labels (Array name length) = (name, replicate (fromIntegral length) 0)
 
-alloc_vars _ [] = ([], [])
-alloc_vars addr (var:varstail) = (vardata:vdtail, varlabel:vltail)
+alloc_vars :: [(String, Integer)] -> Integer -> [AST] -> ([[Int]], [(String, Integer)])
+alloc_vars _ _ [] = ([], [])
+alloc_vars labels addr (var:varstail) = (vardata:vdtail, varlabel:vltail)
   where
-    (varname, vardata) = var_to_nl var
+    (varname, vardata) = var_to_nl labels var
     varlabel = (varname, addr)
-    (vdtail, vltail) = alloc_vars (addr + length vardata) varstail
+    (vdtail, vltail) = alloc_vars labels (addr + fromIntegral (length vardata)) varstail
+
+res_const16 labels (Number16 val) = val
+res_const16 labels (LabelName lbl) = val
+  where
+    Just val = lookup lbl labels
+res_const16 labels (HashConst8 c8) = 255*256 + res_const8 labels c8
+
+res_const8 labels (Number8 val) = val
+res_const8 labels (ConstL c16) = mod (res_const16 labels c16) 256
+res_const8 labels (ConstH c16) = div (res_const16 labels c16) 256
+
+res_mov labels (x, y) = (res_const16 labels x, res_const16 labels y)
+
+mov_to_bytes :: (Integer, Integer) -> [Int]
+mov_to_bytes (x, y) = map fromIntegral [div x 256, mod x 256, div y 256, mod y 256]
+
+compile ast = (codedata ++ vardata, codelabels ++ varlabels)
+  where
+    Seq stmtlist = ast
+    ops = extract_ops stmtlist
+    vars = extract_vars stmtlist
+    (movs_, codelabels) = ops_to_movs 0 ops
+    movs = concat movs_
+    opslen = 4 * fromIntegral (length movs)
+    (vardata_, varlabels) = alloc_vars (registers ++ codelabels) opslen vars
+    vardata = concat vardata_
+    movs_resolved = map (res_mov (concat [registers, codelabels, varlabels])) movs
+    codedata = concat $ map mov_to_bytes movs_resolved
