@@ -7,6 +7,7 @@ import Text.Parsec.Language
 import Text.Parsec.String
 import Text.Parsec.Expr
 import Data.Char (ord)
+import qualified Data.ByteString as B
 
 data Const16 = LabelName String
              | Number16 Integer
@@ -189,9 +190,10 @@ ops_to_movs _ [] = ([], [])
 ops_to_movs addr (Label lbl:opstail) = (movstail, (lbl,addr-2):labelstail)
   where
     (movstail, labelstail) = ops_to_movs addr opstail
-ops_to_movs addr (op:opstail) = ((op_to_mov op):movstail, labelstail)
+ops_to_movs addr (op:opstail) = (opmovs:movstail, labelstail)
   where
-    (movstail, labelstail) = ops_to_movs (addr+4) opstail
+    opmovs = op_to_mov op
+    (movstail, labelstail) = ops_to_movs (addr + 4 * (fromIntegral $ length opmovs)) opstail
 
 var_to_nl labels (VarStr name value) = (name, concat [map ord value, [0]])
 var_to_nl labels (Var8 name value) = (name, [fromIntegral $ res_const8 labels value])
@@ -221,7 +223,7 @@ res_mov labels (x, y) = (res_const16 labels x, res_const16 labels y)
 mov_to_bytes :: (Integer, Integer) -> [Int]
 mov_to_bytes (x, y) = map fromIntegral [div x 256, mod x 256, div y 256, mod y 256]
 
-compile ast = (codedata ++ vardata, codelabels ++ varlabels)
+compile ast = (B.pack $ map fromIntegral $ codedata ++ vardata, codelabels ++ varlabels)
   where
     Seq stmtlist = ast
     ops = extract_ops stmtlist
@@ -233,3 +235,9 @@ compile ast = (codedata ++ vardata, codelabels ++ varlabels)
     vardata = concat vardata_
     movs_resolved = map (res_mov (concat [registers, codelabels, varlabels])) movs
     codedata = concat $ map mov_to_bytes movs_resolved
+
+compile_file infile outfile = do
+  Right ast <- parseFromFile simpleOne infile
+  let (out, labels) = compile ast
+  B.writeFile outfile out
+  return ()
