@@ -152,3 +152,33 @@ is_var _ = False
 extract_vars = filter is_var
 
 extract_ops = filter $ not . is_var
+
+mov_ar x y = (x, (LabelName y))
+mov_ra x y = ((LabelName x), y)
+mov_hr x y = (HashConst8 $ ConstH x, (LabelName y))
+mov_lr x y = (HashConst8 $ ConstL x, (LabelName y))
+mov_nr x y = (HashConst8 $ Number8 x, (LabelName y))
+
+op_to_mov (Operation1 "exit" x) = [mov_ar x "EXIT"]
+op_to_mov (Operation1 "putc" x) = [mov_ar x "PUTC"]
+op_to_mov (Operation1 "jmp" x) = [mov_hr x "JMPH",
+                                  mov_lr x "JMPL",
+                                  mov_nr 1 "JMPNZ"]
+op_to_mov (Operation1 "push" x) = [mov_ar x "STACK"]
+op_to_mov (Operation1 "pop" x) = [mov_ra "STACK" x]
+op_to_mov (Operation1 "call" x) = [mov_hr x "JMPH",
+                                   mov_lr x "JMPL",
+                                   mov_nr 1 "CALL"]
+op_to_mov (Operation2 "mov" x y) = [(y, x)]
+op_to_mov (Operation2 "jmpnz" x y) = [mov_hr x "JMPH",
+                                      mov_lr x "JMPL",
+                                      mov_ar y "JMPNZ"]
+op_to_mov (Operation2 "notl" x y) = [mov_ar y "ALOP1",
+                                     mov_ra "ALNOTL" x]
+op_to_mov (Operation3 "add" x y z) = [mov_ar y "ALOP1",
+                                      mov_ar z "ALOP2",
+                                      mov_ra "ALADD" x]
+op_to_mov (Operation3 "or" x y z) = [mov_ar y "ALOP1",
+                                     mov_ar z "ALOP2",
+                                     mov_ra "ALOR" x]
+op_to_mov Ret = [mov_nr 1 "JMPNZ"]
